@@ -1,0 +1,23 @@
+# docker-compose.hermithost.yml
+# Drop-in for HermitHost deployments. Use alongside .env:
+#   docker compose -f docker-compose.yml -f docker-compose.hermithost.yml up -d
+
+services:
+  pagurus:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pagurus.rule=Host(`${PAGURUS_DOMAIN:?PAGURUS_DOMAIN required}`)"
+      - "traefik.http.routers.pagurus.entrypoints=websecure"
+      - "traefik.http.routers.pagurus.tls=true"
+      - "traefik.http.routers.pagurus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pagurus.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik"
+    networks:
+      - traefik
+      - default
+    # Override port binding — Traefik handles external traffic
+    ports: []
+
+networks:
+  traefik:
+    external: true

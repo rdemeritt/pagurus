@@ -1,2 +1,3 @@
-# Allow argon2 to build since it's required as a native module
-onlyBuiltDependencies = argon2
+# pnpm configuration
+# Allow argon2 to be built in Docker
+only-built-dependencies = argon2

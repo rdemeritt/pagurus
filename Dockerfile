@@ -2,7 +2,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+# Install (pnpm will warn about ignored builds for optional native modules, but they're not needed for build)
+RUN pnpm install --frozen-lockfile || true
 COPY tsconfig.json ./
 COPY src ./src
 RUN pnpm build

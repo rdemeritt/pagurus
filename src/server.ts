@@ -18,31 +18,16 @@ export function createApp(config: Config) {
 
   // Health endpoints — auth-exempt
   app.get("/healthz", (c) => c.json({ status: "ok", version: VERSION }));
-  app.get("/readyz", (c) => c.json({ status: "ok" })); // expanded in E3+ when packs initialize
+  app.get("/readyz", (c) => c.json({ status: "ok" }));
 
   // Auth middleware — applied after health routes, before /mcp
   app.use(authMiddleware(config));
 
-  // MCP Streamable HTTP transport — one shared instance (stateless mode)
-  const mcpServer = new McpServer({
-    name: "pagurus",
-    version: VERSION,
-  });
-
-  registerFsTools(mcpServer, config);
-  registerHttpTools(mcpServer, config);
-  registerShellTools(mcpServer, config);
-
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless mode
-  });
-
-  // Wire MCP server to transport (fire-and-forget; connect() is async but
-  // transport is ready synchronously for the first request)
-  mcpServer.connect(transport).catch((err: unknown) => {
+  app.onError((err, c) => {
     console.error(
-      JSON.stringify({ level: "error", msg: "mcpServer.connect failed", err: String(err) })
+      JSON.stringify({ level: "error", msg: "unhandled handler error", err: String(err), stack: err instanceof Error ? err.stack : undefined })
     );
+    return c.text("internal server error", 500);
   });
 
   app.post("/mcp", async (c) => {
@@ -64,19 +49,36 @@ export function createApp(config: Config) {
     }
 
     const body = await c.req.json();
-
-    // Access the raw Node.js IncomingMessage / ServerResponse via c.env
-    // (provided by @hono/node-server's HttpBindings)
     const { incoming, outgoing } = c.env;
 
+    // Stateless mode: fresh McpServer + transport per request.
+    // The SDK does not support reusing a transport across requests in stateless
+    // mode — after handleRequest completes the transport is spent.
+    const mcpServer = new McpServer({ name: "pagurus", version: VERSION });
+    registerFsTools(mcpServer, config);
+    registerHttpTools(mcpServer, config);
+    registerShellTools(mcpServer, config);
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined, // stateless — no Mcp-Session-Id header
+    });
+
+    await mcpServer.connect(transport);
     await transport.handleRequest(incoming, outgoing, body);
 
-    // handleRequest writes directly to the Node.js ServerResponse; return an
-    // empty Hono response so Hono doesn't try to write headers again.
+    // @hono/node-server v2 responseViaCache does not guard writeHead/end against
+    // double-write. The transport already wrote to outgoing; stomp the methods so
+    // Hono's response path silently no-ops instead of throwing ERR_HTTP_HEADERS_SENT.
+    if (outgoing.headersSent) {
+      (outgoing as any).writeHead = () => outgoing;
+      (outgoing as any).write = () => true;
+      (outgoing as any).end = () => outgoing;
+    }
+
     return new Response(null, { status: 200 });
   });
 
-  return { app, mcpServer };
+  return { app };
 }
 
 export function startServer(config: Config) {

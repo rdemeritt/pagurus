@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import { mkdtemp, rm, writeFile as fsWrite, mkdir } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { createApp } from "../src/server.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerFsTools } from "../src/tools/fs.js";
 import type { Config } from "../src/config.js";
 
 const TEST_KEY = "pag_live_testkey12345678901234567890123";
@@ -21,9 +22,8 @@ function makeConfig(fsRoot: string, fsWrite = true): Config {
   };
 }
 
-// McpServer stores registered tools on _registeredTools as a plain object keyed by tool name
-function registeredToolNames(mcpServer: { _registeredTools: Record<string, unknown> }): string[] {
-  return Object.keys(mcpServer._registeredTools);
+function registeredToolNames(server: McpServer): string[] {
+  return Object.keys((server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools);
 }
 
 describe("fs tool pack", () => {
@@ -40,28 +40,22 @@ describe("fs tool pack", () => {
   });
 
   it("registers fs.list, fs.read, and fs.write when fsWrite=true", () => {
-    const { mcpServer } = createApp(makeConfig(tmpDir, true));
-    const names = registeredToolNames(mcpServer as unknown as { _registeredTools: Record<string, unknown> });
-    expect(names).toContain("fs.list");
-    expect(names).toContain("fs.read");
-    expect(names).toContain("fs.write");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerFsTools(server, makeConfig(tmpDir, true));
+    expect(registeredToolNames(server)).toContain("fs.list");
+    expect(registeredToolNames(server)).toContain("fs.read");
+    expect(registeredToolNames(server)).toContain("fs.write");
   });
 
   it("omits fs.write when fsWrite=false", () => {
-    const { mcpServer } = createApp(makeConfig(tmpDir, false));
-    const names = registeredToolNames(mcpServer as unknown as { _registeredTools: Record<string, unknown> });
-    expect(names).toContain("fs.list");
-    expect(names).toContain("fs.read");
-    expect(names).not.toContain("fs.write");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerFsTools(server, makeConfig(tmpDir, false));
+    expect(registeredToolNames(server)).toContain("fs.list");
+    expect(registeredToolNames(server)).toContain("fs.read");
+    expect(registeredToolNames(server)).not.toContain("fs.write");
   });
 
   it("jailPath rejects path traversal", async () => {
-    // Dynamically import the module to access jailPath indirectly via fs.read
-    // We test the jail by invoking the Hono app's /mcp route with a traversal path.
-    // Since we do not have a full MCP transport wired for unit tests, we verify
-    // the deny logic by checking that a traversal-resolved path would fail the
-    // relative() check — tested through the tool's error path via the app.
-    // The presence of the guard is confirmed; full integration tested in E2E.
     expect(true).toBe(true); // guard exists in jailPath — see src/tools/fs.ts
   });
 });

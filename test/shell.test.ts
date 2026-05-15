@@ -1,11 +1,11 @@
 import { describe, it, expect } from "@jest/globals";
-import { createApp } from "../src/server.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerShellTools } from "../src/tools/shell.js";
 
 const TEST_KEY = "pag_live_testkey12345678901234567890123";
 
-// McpServer stores registered tools on _registeredTools keyed by tool name
-function registeredToolNames(mcpServer: { _registeredTools: Record<string, unknown> }): string[] {
-  return Object.keys(mcpServer._registeredTools);
+function registeredToolNames(server: McpServer): string[] {
+  return Object.keys((server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools);
 }
 
 const disabledConfig = {
@@ -28,18 +28,14 @@ const enabledConfig = {
 
 describe("shell.exec tool pack", () => {
   it("shell.exec NOT registered when shellEnabled=false", () => {
-    const { mcpServer } = createApp(disabledConfig);
-    const names = registeredToolNames(
-      mcpServer as unknown as { _registeredTools: Record<string, unknown> }
-    );
-    expect(names).not.toContain("shell.exec");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerShellTools(server, disabledConfig);
+    expect(registeredToolNames(server)).not.toContain("shell.exec");
   });
 
   it("shell.exec registered when shellEnabled=true", () => {
-    const { mcpServer } = createApp(enabledConfig);
-    const names = registeredToolNames(
-      mcpServer as unknown as { _registeredTools: Record<string, unknown> }
-    );
-    expect(names).toContain("shell.exec");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerShellTools(server, enabledConfig);
+    expect(registeredToolNames(server)).toContain("shell.exec");
   });
 });

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "@jest/globals";
-import { createApp } from "../src/server.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerHttpTools } from "../src/tools/http.js";
 
 const TEST_KEY = "pag_live_testkey12345678901234567890123";
 
-// McpServer stores registered tools on _registeredTools keyed by tool name
-function registeredToolNames(mcpServer: { _registeredTools: Record<string, unknown> }): string[] {
-  return Object.keys(mcpServer._registeredTools);
+function registeredToolNames(server: McpServer): string[] {
+  return Object.keys((server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools);
 }
 
 const testConfig = {
@@ -22,15 +22,14 @@ const testConfig = {
 
 describe("http tool pack", () => {
   it("registers http.fetch tool", () => {
-    const { mcpServer } = createApp(testConfig);
-    const names = registeredToolNames(mcpServer as unknown as { _registeredTools: Record<string, unknown> });
-    expect(names).toContain("http.fetch");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerHttpTools(server, testConfig);
+    expect(registeredToolNames(server)).toContain("http.fetch");
   });
 
   it("registers http.fetch with empty allowlist (all hosts allowed)", () => {
-    const config = { ...testConfig, httpAllowlist: [] };
-    const { mcpServer } = createApp(config);
-    const names = registeredToolNames(mcpServer as unknown as { _registeredTools: Record<string, unknown> });
-    expect(names).toContain("http.fetch");
+    const server = new McpServer({ name: "test", version: "0" });
+    registerHttpTools(server, { ...testConfig, httpAllowlist: [] });
+    expect(registeredToolNames(server)).toContain("http.fetch");
   });
 });

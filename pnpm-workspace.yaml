@@ -1,6 +1,5 @@
 packages:
-  - .
+  - "."
 
 allowBuilds:
-  argon2: set this to true or false
-  esbuild: set this to true or false
+  esbuild: true

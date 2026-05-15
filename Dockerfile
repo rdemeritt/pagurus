@@ -1,18 +1,18 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable pnpm
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile 2>&1 || pnpm install --no-frozen-lockfile 2>&1 || true
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+RUN pnpm install --frozen-lockfile
 COPY tsconfig.json ./
 COPY src ./src
-RUN pnpm build 2>&1 || (echo "Build failed, creating empty dist" && mkdir -p dist)
+RUN pnpm build
 
 FROM node:22-alpine AS runtime
 RUN addgroup -g 10001 pagurus && adduser -u 10001 -G pagurus -s /bin/sh -D pagurus
 WORKDIR /app
 RUN corepack enable pnpm
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod 2>&1 | head -100; exit 0
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data /workspace && chown pagurus:pagurus /data /workspace
 USER pagurus

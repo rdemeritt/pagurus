@@ -16,7 +16,7 @@
     "pagurus": "tsx src/cli.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.0",
+    "@hono/node-server": "^2.0.2",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@types/mime-types": "^3.0.1",
     "hono": "^4.7.0",

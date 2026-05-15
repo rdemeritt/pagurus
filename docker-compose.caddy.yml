@@ -1,0 +1,28 @@
+# docker-compose.caddy.yml
+# Caddy reverse proxy overlay for Pagurus.
+# Caddy is a simple, automatic-HTTPS reverse proxy ideal for self-hosting.
+#
+# Usage:
+#   1. Ensure Caddy is running on a shared Docker network named 'caddy'
+#   2. docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# Add to your Caddyfile:
+#   pagurus.yourdomain.com {
+#     reverse_proxy pagurus:8080
+#   }
+#
+# Required env vars:
+#   PAGURUS_EXTERNAL_URL (e.g., https://pagurus.yourdomain.com)
+#   PAGURUS_FS_ROOT (e.g., /path/to/workspace)
+
+services:
+  pagurus:
+    networks:
+      - caddy
+      - default
+    # No external port binding — Caddy handles external traffic
+    ports: []
+
+networks:
+  caddy:
+    external: true

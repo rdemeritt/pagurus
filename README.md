@@ -85,13 +85,13 @@ Pagurus is a Model Context Protocol (MCP) server that sits between Claude (Deskt
 ```mermaid
 sequenceDiagram
     participant Claude as Claude Desktop/<br/>Code
-    participant Traefik as Traefik<br/>(HermitHost)
+    participant Proxy as Reverse Proxy<br/>(Traefik, Caddy, etc.)
     participant Pagurus as Pagurus Container
     participant Auth as Auth Middleware
     participant Tools as Tool Packs
     
-    Claude->>Traefik: POST /mcp<br/>+ Authorization header
-    Traefik->>Pagurus: HTTPS (TLS)
+    Claude->>Proxy: POST /mcp<br/>+ Authorization header
+    Proxy->>Pagurus: HTTP or HTTPS
     Pagurus->>Auth: Extract & validate<br/>Bearer token
     Auth->>Auth: SHA-256 fingerprint<br/>+ timingSafeEqual
     alt Token invalid
@@ -151,7 +151,7 @@ When Claude calls a tool through Pagurus, here's what happens:
 
 1. **Claude sends a request** — POST to `/mcp` with JSON-RPC `tools/call` and `Authorization: Bearer <KEY>` header.
 
-2. **Traefik receives it** — If deployed on HermitHost, Traefik terminates TLS and forwards to Pagurus over HTTP (internal network).
+2. **Reverse proxy receives it** — The proxy terminates TLS and forwards to Pagurus over HTTP (internal network).
 
 3. **Hono server accepts POST /mcp** — Routes through:
    - **Health endpoint exemption** — `/healthz` and `/readyz` skip all auth
@@ -351,7 +351,7 @@ flowchart TD
 ```
 
 **Layer 1: TLS Transport**
-- All traffic to Pagurus is encrypted. When deployed on HermitHost, Traefik terminates TLS; internal communication is on a private network.
+- All traffic to Pagurus is encrypted. A reverse proxy terminates TLS; internal communication uses your Docker network.
 
 **Layer 2: Bearer Token Authentication**
 - API keys are cryptographically compared using `timingSafeEqual` to prevent timing attacks.
@@ -394,11 +394,11 @@ All configuration via environment variables in `.env`:
 
 See `.env.example` for all options with detailed descriptions.
 
-## Deploying on HermitHost
+## Deploying with a Reverse Proxy
 
-Pagurus is built to run on [HermitHost](https://github.com/rdemeritt/hermithost) — self-hosted Netlify alternative with DNS + SSL.
+The base `docker-compose.yml` binds to `127.0.0.1:8080`. To expose Pagurus over HTTPS, put a reverse proxy in front (Traefik, Caddy, Nginx, etc.).
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step HermitHost deployment guide.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for platform-specific examples (HermitHost, Coolify, standalone Traefik, Caddy, Nginx, etc.).
 
 ## Roadmap
 

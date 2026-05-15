@@ -1,6 +1,9 @@
 # docker-compose.hermithost.yml
-# Drop-in for HermitHost deployments. Use alongside .env:
-#   docker compose -f docker-compose.yml -f docker-compose.hermithost.yml up -d
+# Traefik reverse proxy overlay for Pagurus.
+# Works with any Traefik v2/v3 setup: HermitHost, Coolify, Caprover, or standalone.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.hermithost.yml up -d
+# Requires: traefik Docker network (created by Traefik or your platform)
+# Required env vars: PAGURUS_DOMAIN (e.g., pagurus.example.com)
 
 services:
   pagurus:

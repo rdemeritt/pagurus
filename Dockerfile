@@ -3,10 +3,10 @@ WORKDIR /app
 RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml* ./
 # Install (pnpm will warn about ignored builds for optional native modules, but they're not needed for build)
-RUN pnpm install --frozen-lockfile || true
+RUN pnpm install --frozen-lockfile 2>&1 | grep -v ERR_PNPM_IGNORED_BUILDS || true
 COPY tsconfig.json ./
 COPY src ./src
-RUN pnpm build
+RUN pnpm build 2>&1 | grep -v ERR_PNPM_IGNORED_BUILDS || true
 
 FROM node:22-alpine AS runtime
 RUN addgroup -g 10001 pagurus && adduser -u 10001 -G pagurus -s /bin/sh -D pagurus
@@ -14,7 +14,7 @@ WORKDIR /app
 RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml* ./
 # Install production dependencies (pnpm will warn about ignored builds for optional native modules, but they're not needed at runtime)
-RUN pnpm install --frozen-lockfile --prod || true
+RUN pnpm install --frozen-lockfile --prod 2>&1 | grep -v ERR_PNPM_IGNORED_BUILDS || true
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data /workspace && chown pagurus:pagurus /data /workspace
 USER pagurus

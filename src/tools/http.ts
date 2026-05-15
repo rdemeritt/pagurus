@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Config } from "../config.js";
 import { Agent, fetch as undiciFetch } from "undici";
 import type { Dispatcher } from "undici";
+import type { LookupAddress } from "dns";
 import { lookup as dnsLookup } from "dns";
 
 // ---------------------------------------------------------------------------
@@ -65,13 +66,24 @@ function hostnameAllowed(hostname: string, allowlist: string[]): boolean {
 function makeValidatingAgent(allowPrivate: boolean): Dispatcher {
   return new Agent({
     connect: {
+      // Node.js v17+ (Happy Eyeballs / autoSelectFamily) calls this lookup with
+      // options.all = true and expects callback(err, LookupAddress[]).
+      // Older callers use options.all = false and expect callback(err, string, number).
+      // We pass `options` through unchanged and forward the raw dns.lookup result
+      // after the SSRF check, so the callback receives the correct format either way.
       lookup: (hostname, options, callback) => {
-        dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (dnsLookup as any)(hostname, options, (err: NodeJS.ErrnoException | null, ...args: unknown[]) => {
           if (err) {
-            callback(err as NodeJS.ErrnoException, "", 4);
+            callback(err, "", 4);
             return;
           }
-          const addrs = Array.isArray(addresses) ? addresses : [addresses];
+
+          // Normalise to an array for the SSRF check regardless of `all` mode
+          const addrs: LookupAddress[] = options.all
+            ? (args[0] as LookupAddress[])
+            : [{ address: args[0] as string, family: args[1] as number }];
+
           if (!allowPrivate) {
             for (const { address } of addrs) {
               if (isPrivateIp(address)) {
@@ -84,12 +96,15 @@ function makeValidatingAgent(allowPrivate: boolean): Dispatcher {
               }
             }
           }
-          const first = addrs[0];
-          if (!first) {
+
+          if (addrs.length === 0) {
             callback(new Error("dns_no_result") as NodeJS.ErrnoException, "", 4);
             return;
           }
-          callback(null, first.address, first.family as 4 | 6);
+
+          // Forward original args so callback receives the exact format it expects
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (callback as any)(null, ...args);
         });
       },
     },
@@ -278,6 +293,13 @@ export function registerHttpTools(server: McpServer, config: Config): void {
             },
           ],
         };
+      } catch (err) {
+        // Unwrap undici's generic "fetch failed" TypeError to surface the real cause
+        if (err instanceof TypeError && err.message === "fetch failed") {
+          const cause = (err as { cause?: { message?: string } }).cause;
+          throw new Error(`fetch failed: ${cause?.message ?? "unknown"}`);
+        }
+        throw err;
       } finally {
         // clearTimeout only after body read completes (or on error) — Fix 4
         clearTimeout(timer);

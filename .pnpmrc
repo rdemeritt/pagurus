@@ -1,1 +1,2 @@
-onlyBuiltDependencies[]=argon2
+# Allow argon2 to build since it's required as a native module
+onlyBuiltDependencies = argon2

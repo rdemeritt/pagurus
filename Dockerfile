@@ -1,9 +1,8 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-RUN corepack enable pnpm
+RUN corepack enable pnpm && npm_config_build_from_source=false pnpm config set build-from-source false
 COPY package.json pnpm-lock.yaml* ./
-# Install (pnpm will warn about ignored builds for optional native modules, but they're not needed for build)
-RUN sh -c 'pnpm install --frozen-lockfile; exit 0'
+RUN pnpm install --frozen-lockfile
 COPY tsconfig.json ./
 COPY src ./src
 RUN pnpm build
@@ -11,10 +10,9 @@ RUN pnpm build
 FROM node:22-alpine AS runtime
 RUN addgroup -g 10001 pagurus && adduser -u 10001 -G pagurus -s /bin/sh -D pagurus
 WORKDIR /app
-RUN corepack enable pnpm
+RUN corepack enable pnpm && npm_config_build_from_source=false pnpm config set build-from-source false
 COPY package.json pnpm-lock.yaml* ./
-# Install production dependencies (pnpm will warn about ignored builds for optional native modules, but they're not needed at runtime)
-RUN sh -c 'pnpm install --frozen-lockfile --prod; exit 0'
+RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data /workspace && chown pagurus:pagurus /data /workspace
 USER pagurus

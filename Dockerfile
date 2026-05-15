@@ -2,7 +2,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --allow-build
 COPY tsconfig.json ./
 COPY src ./src
 RUN pnpm build
@@ -12,7 +12,7 @@ RUN addgroup -g 10001 pagurus && adduser -u 10001 -G pagurus -s /bin/sh -D pagur
 WORKDIR /app
 RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --allow-build
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data /workspace && chown pagurus:pagurus /data /workspace
 USER pagurus
